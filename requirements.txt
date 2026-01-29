@@ -2,3 +2,5 @@ fastapi
 uvicorn
 pymupdf
 pillow
+python-multipart
+
