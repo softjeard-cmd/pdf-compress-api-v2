@@ -9,7 +9,7 @@ app = FastAPI()
 @app.post("/compress")
 async def compress_pdf(
     file: UploadFile = File(...),
-    calidad: int = 41,
+    calidad: int = 40,
     escala: float = 0.6
 ):
     with tempfile.TemporaryDirectory() as tmp:
@@ -31,6 +31,7 @@ async def compress_pdf(
             media_type="application/pdf",
             filename="PDF_OPTIMIZADO.pdf"
         )
+
 
 
 
