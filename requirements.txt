@@ -3,4 +3,7 @@ uvicorn
 pymupdf
 pillow
 python-multipart
+requests
+
+
 
