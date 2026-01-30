@@ -1,5 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import FileResponse
 import tempfile
 import os
 
@@ -8,52 +8,34 @@ from pdf_compress import comprimir_solo_imagenes_pdf
 app = FastAPI()
 
 
-@app.get("/")
-def health():
-    return {"status": "ok"}
-
-
 @app.post("/compress")
 async def compress_pdf(
     file: UploadFile = File(...),
-    quality: int = Form(41),
-    scale: float = Form(0.6)
+    calidad: int = 41,
+    escala: float = 0.6
 ):
-    try:
-        # -------- guardar PDF entrada ----------
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as input_tmp:
-            content = await file.read()
-            input_tmp.write(content)
-            input_path = input_tmp.name
+    # directorio temporal
+    with tempfile.TemporaryDirectory() as tmp:
+        input_path = os.path.join(tmp, file.filename)
+        output_path = os.path.join(tmp, "PDF_OPTIMIZADO.pdf")
 
-        # -------- archivo salida ----------
-        output_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-        output_path = output_tmp.name
-        output_tmp.close()
+        # guardar archivo de entrada
+        with open(input_path, "wb") as f:
+            f.write(await file.read())
 
-        # -------- comprimir ----------
+        # comprimir
         comprimir_solo_imagenes_pdf(
             input_path,
             output_path,
-            quality,
-            scale
+            calidad,
+            escala
         )
 
-        # -------- devolver PDF ----------
+        # devolver PDF
         return FileResponse(
             output_path,
             media_type="application/pdf",
             filename="PDF_OPTIMIZADO.pdf"
         )
-
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
-
-    finally:
-        if 'input_path' in locals() and os.path.exists(input_path):
-            os.remove(input_path)
 
 
