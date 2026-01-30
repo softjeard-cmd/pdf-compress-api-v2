@@ -1,7 +1,8 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, Body
 from fastapi.responses import FileResponse
 import tempfile
 import os
+import base64
 
 # Asegúrate de que este archivo pdf_compress.py esté en la misma carpeta
 from pdf_compress import comprimir_solo_imagenes_pdf
@@ -46,14 +47,21 @@ async def compress_pdf(
         # Limpieza: Eliminamos solo el archivo de entrada
         if os.path.exists(input_path):
             os.remove(input_path)
- #Codigo 2 - base64
-
-from fastapi import Body
-import base64
+            
+ #CODIGO PARTE 2 -A INCLUIDO BASE64
 
 @app.post("/compress_base64")
 async def compress_base64(data: dict = Body(...)):
     file_b64 = data["file_base64"]
+
+    # 🔧 quitar prefijo data URL si viene
+    if "," in file_b64:
+        file_b64 = file_b64.split(",")[1]
+
+    # 🔧 corregir padding base64 si falta
+    missing_padding = len(file_b64) % 4
+    if missing_padding:
+        file_b64 += "=" * (4 - missing_padding)
 
     pdf_bytes = base64.b64decode(file_b64)
 
@@ -63,12 +71,24 @@ async def compress_base64(data: dict = Body(...)):
 
     output_path = tempfile.mktemp(suffix=".pdf")
 
-    comprimir_solo_imagenes_pdf(input_path, output_path, 41, 0.6)
+    try:
+        comprimir_solo_imagenes_pdf(
+            input_path,
+            output_path,
+            41,
+            0.6
+        )
 
-    with open(output_path, "rb") as f:
-        result_b64 = base64.b64encode(f.read()).decode()
+        with open(output_path, "rb") as f:
+            result_b64 = base64.b64encode(f.read()).decode()
 
-    return {"file_base64": result_b64}
+        return {"file_base64": result_b64}
+
+    finally:
+        if os.path.exists(input_path):
+            os.remove(input_path)
+        if os.path.exists(output_path):
+            os.remove(output_path)
 
 
 
