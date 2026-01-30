@@ -6,7 +6,7 @@ from PIL import Image
 def comprimir_solo_imagenes_pdf(
     entrada,
     salida,
-    calidad=40,
+    calidad=41,
     escala=0.60
 ):
     doc = fitz.open(entrada)
@@ -57,4 +57,5 @@ def comprimir_solo_imagenes_pdf(
 
     doc.save(salida, garbage=4, deflate=True, clean=True)
     doc.close()
+
 
