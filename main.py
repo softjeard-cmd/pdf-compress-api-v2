@@ -46,7 +46,29 @@ async def compress_pdf(
         # Limpieza: Eliminamos solo el archivo de entrada
         if os.path.exists(input_path):
             os.remove(input_path)
+ #Codigo 2 - base64
 
+from fastapi import Body
+import base64
+
+@app.post("/compress_base64")
+async def compress_base64(data: dict = Body(...)):
+    file_b64 = data["file_base64"]
+
+    pdf_bytes = base64.b64decode(file_b64)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as input_tmp:
+        input_tmp.write(pdf_bytes)
+        input_path = input_tmp.name
+
+    output_path = tempfile.mktemp(suffix=".pdf")
+
+    comprimir_solo_imagenes_pdf(input_path, output_path, 41, 0.6)
+
+    with open(output_path, "rb") as f:
+        result_b64 = base64.b64encode(f.read()).decode()
+
+    return {"file_base64": result_b64}
 
 
 
