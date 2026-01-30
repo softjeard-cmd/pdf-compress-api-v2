@@ -52,43 +52,63 @@ async def compress_pdf(
 
 @app.post("/compress_base64")
 async def compress_base64(data: dict = Body(...)):
-    file_b64 = data["file_base64"]
-
-    # 🔧 quitar prefijo data URL si viene
-    if "," in file_b64:
-        file_b64 = file_b64.split(",")[1]
-
-    # 🔧 corregir padding base64 si falta
-    missing_padding = len(file_b64) % 4
-    if missing_padding:
-        file_b64 += "=" * (4 - missing_padding)
-
-    pdf_bytes = base64.b64decode(file_b64)
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as input_tmp:
-        input_tmp.write(pdf_bytes)
-        input_path = input_tmp.name
-
-    output_path = tempfile.mktemp(suffix=".pdf")
-
     try:
-        comprimir_solo_imagenes_pdf(
-            input_path,
-            output_path,
-            41,
-            0.6
-        )
+        file_b64 = data["file_base64"]
+        quality = data.get("quality", 41)
+        scale = data.get("scale", 0.6)
+
+        if "," in file_b64:
+            file_b64 = file_b64.split(",")[1]
+
+        missing_padding = len(file_b64) % 4
+        if missing_padding:
+            file_b64 += "=" * (4 - missing_padding)
+
+        pdf_bytes = base64.b64decode(file_b64)
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as input_tmp:
+            input_tmp.write(pdf_bytes)
+            input_path = input_tmp.name
+
+        output_path = tempfile.mktemp(suffix=".pdf")
+
+        # 🔧 abrir seguro
+        try:
+            comprimir_solo_imagenes_pdf(
+                input_path,
+                output_path,
+                quality,
+                scale
+            )
+        except Exception as e:
+            # fallback → devolver original si no se puede comprimir
+            with open(input_path, "rb") as f:
+                result_b64 = base64.b64encode(f.read()).decode()
+            return {
+                "file_base64": result_b64,
+                "note": "pdf_sin_imagenes_o_no_comprimible"
+            }
+
+        # 🔧 leer salida si existe
+        if not os.path.exists(output_path):
+            with open(input_path, "rb") as f:
+                result_b64 = base64.b64encode(f.read()).decode()
+            return {"file_base64": result_b64}
 
         with open(output_path, "rb") as f:
             result_b64 = base64.b64encode(f.read()).decode()
 
         return {"file_base64": result_b64}
 
+    except Exception as e:
+        return {"error": str(e)}
+
     finally:
-        if os.path.exists(input_path):
+        if 'input_path' in locals() and os.path.exists(input_path):
             os.remove(input_path)
-        if os.path.exists(output_path):
+        if 'output_path' in locals() and os.path.exists(output_path):
             os.remove(output_path)
+
 
 
 
