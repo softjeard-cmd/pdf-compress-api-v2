@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import FileResponse
 import tempfile
 import os
@@ -10,12 +10,12 @@ app = FastAPI()
 @app.post("/compress")
 async def compress_pdf(
     file: UploadFile = File(...),
-    quality: int = 41,
-    scale: float = 0.6
+    quality: int = Form(41),
+    scale: float = Form(0.6)
 ):
     with tempfile.TemporaryDirectory() as tmp:
         input_path = os.path.join(tmp, file.filename)
-        output_path = os.path.join(tmp, "PDF_OPTIMIZADO.pdf")
+        output_path = os.path.join(tmp, "optimized.pdf")
 
         with open(input_path, "wb") as f:
             f.write(await file.read())
@@ -30,7 +30,7 @@ async def compress_pdf(
         return FileResponse(
             output_path,
             media_type="application/pdf",
-            filename="PDF_OPTIMIZADO.pdf"
+            filename="PDF_OPTIMIZED.pdf"
         )
 
 
