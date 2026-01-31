@@ -75,13 +75,16 @@ async def debug_gpt(request: Request):
 # --- SECCIÓN NUEVA PARA GPT ACTIONS ---
 @app.post("/compress-gpt")
 async def compress_from_gpt(request: Request):
-    # 1. Capturamos y mostramos los datos en el log
+    # 1. Importación de seguridad
+    import requests
+    import os  # Necesario para medir el tamaño del archivo resultante
+    
+    # 2. Capturamos y mostramos los datos en el log
     data = await request.json()
     print("--- INICIANDO COMPRESIÓN DESDE GPT ---")
     print(f"Datos recibidos: {data}") 
     
     # --- DEFINICIÓN DE VARIABLES POR DEFECTO ---
-    # Las definimos aquí para tener control total
     calidad_por_defecto = 41
     escala_por_defecto = 0.60
     print(f"Configuración: Calidad={calidad_por_defecto}, Escala={escala_por_defecto}")
@@ -96,36 +99,46 @@ async def compress_from_gpt(request: Request):
     file_name = file_info.get("name", "archivo.pdf")
     print(f"Procesando archivo: {file_name}")
 
-    # 2. Descarga con verificación
+    # 3. Descarga con verificación
     try:
         print(f"Descargando desde OpenAI...")
         response = requests.get(download_url, timeout=30)
         if response.status_code != 200:
             print(f"Error de descarga: Status {response.status_code}")
             return {"error": "No se pudo descargar de OpenAI"}
+        
+        # --- NUEVA MEDICIÓN: TAMAÑO DE ENTRADA ---
+        tamano_entrada_mb = len(response.content) / (1024 * 1024)
+        print(f"TAMAÑO INICIAL: {tamano_entrada_mb:.2f} MB")
+
     except Exception as e:
         print(f"Excepción en descarga: {str(e)}")
-        return {"error": "Fallo de conexión"}
+        return {"error": f"Fallo de conexión: {str(e)}"}
 
-    # 3. Proceso de compresión
+    # 4. Proceso de guardado temporal
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as input_tmp:
         input_tmp.write(response.content)
         input_path = input_tmp.name
 
     output_path = tempfile.mktemp(suffix=".pdf")
 
+    # 5. Proceso de compresión
     try:
         print("Ejecutando comprimir_solo_imagenes_pdf...")
         
-        # Llamamos a tu función asegurándonos de pasar los valores definidos arriba
-        # Nota: Si tu función en pdf_compress.py usa nombres distintos, 
-        # asegúrate de que coincidan (ej: calidad vs quality)
         comprimir_solo_imagenes_pdf(
             input_path, 
             output_path, 
             calidad_por_defecto, 
             escala_por_defecto
         )
+        
+        # --- NUEVA MEDICIÓN: TAMAÑO DE SALIDA ---
+        if os.path.exists(output_path):
+            tamano_salida_mb = os.path.getsize(output_path) / (1024 * 1024)
+            ahorro = ((tamano_entrada_mb - tamano_salida_mb) / tamano_entrada_mb) * 100
+            print(f"TAMAÑO FINAL: {tamano_salida_mb:.2f} MB")
+            print(f"REDUCCIÓN: {ahorro:.1f}%")
         
         print("¡Compresión exitosa!")
 
@@ -135,10 +148,10 @@ async def compress_from_gpt(request: Request):
             filename=f"OPTIMIZADO_{file_name}"
         )
     except Exception as e:
-        # Este print te dirá exactamente por qué falla la lógica interna ahora
         print(f"Error en lógica de compresión: {str(e)}")
         return {"error": f"Error interno al comprimir: {str(e)}"}
     finally:
+        # 6. Limpieza
         if os.path.exists(input_path):
             os.remove(input_path)
             print("Limpieza de archivos temporales completada.")
