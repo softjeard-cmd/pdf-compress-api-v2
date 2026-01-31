@@ -50,7 +50,7 @@ async def compress_pdf(
 
 
 ##============================================================================================
-##JAMAS ME RINDO==============================================================================
+##JAMAS ME RINDO==============CODIGO 1 RESPUESTA DEL BACK=====================================
 
 from fastapi import Request # Asegúrate de añadir Request a tus imports de fastapi
 
@@ -68,6 +68,69 @@ async def debug_gpt(request: Request):
         "status": "recibido",
         "data_preview": data
     }
+
+
+##============================================================================================
+##JAMAS ME RINDO==============CODIGO 2 RESPUESTA DEL BACK=====================================
+# --- SECCIÓN NUEVA PARA GPT ACTIONS ---
+import requests
+
+@app.post("/compress-gpt")
+async def compress_from_gpt(request: Request):
+    """
+    Ruta específica para GPT Actions que recibe un enlace de descarga,
+    lo procesa localmente y devuelve el archivo comprimido.
+    """
+    data = await request.json()
+    files = data.get("openaiFileIdRefs", [])
+    
+    if not files:
+        return {"error": "No se recibió ningún archivo de OpenAI"}
+
+    # Extraemos la información del primer archivo recibido
+    file_info = files[0]
+    download_url = file_info.get("download_link")
+    file_name = file_info.get("name", "archivo.pdf")
+
+    # 1. Descarga del archivo desde los servidores de OpenAI
+    try:
+        response = requests.get(download_url, timeout=30)
+        if response.status_code != 200:
+            return {"error": "No se pudo descargar el archivo de OpenAI"}
+    except Exception as e:
+        return {"error": f"Error de conexión al descargar: {str(e)}"}
+
+    # 2. Creación de archivo temporal para la entrada
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as input_tmp:
+        input_tmp.write(response.content)
+        input_path = input_tmp.name
+
+    # Ruta temporal para el archivo de salida
+    output_path = tempfile.mktemp(suffix=".pdf")
+
+    try:
+        # 3. Ejecución de tu lógica de compresión original
+        comprimir_solo_imagenes_pdf(
+            input_path, 
+            output_path, 
+            quality=41, 
+            scale=0.6
+        )
+
+        # 4. Respuesta con el archivo procesado
+        return FileResponse(
+            output_path,
+            media_type="application/pdf",
+            filename=f"OPTIMIZADO_{file_name}"
+        )
+
+    except Exception as e:
+        return {"error": f"Error en la compresión: {str(e)}"}
+    
+    finally:
+        # Limpieza del archivo temporal de entrada
+        if os.path.exists(input_path):
+            os.remove(input_path)
 
 
 
