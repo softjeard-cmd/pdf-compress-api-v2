@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Query
 from fastapi.responses import FileResponse
 import tempfile
 import os
@@ -41,6 +41,7 @@ async def compress_pdf(
     finally:
         if os.path.exists(input_path):
             os.remove(input_path)
+
 
 
 
