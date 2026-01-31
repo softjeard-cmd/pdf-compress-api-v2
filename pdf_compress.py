@@ -1,39 +1,61 @@
-import fitz
+import fitz  # PyMuPDF
 import io
 from PIL import Image
 
-def comprimir_solo_imagenes_pdf(entrada, salida, quality=41, scale=0.6):
+
+def comprimir_solo_imagenes_pdf(
+    entrada,
+    salida,
+    calidad=41,
+    escala=0.60
+):
     doc = fitz.open(entrada)
 
     for page in doc:
-        img_list = page.get_images(full=True)
-
-        for img in img_list:
+        for img in page.get_images(full=True):
             xref = img[0]
+
+            if calidad == 100 and escala == 1:
+                continue
 
             try:
                 base = doc.extract_image(xref)
                 img_bytes = base["image"]
 
-                im = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+                img_pil = Image.open(io.BytesIO(img_bytes))
 
-                # resize
-                if scale < 1:
-                    w = int(im.width * scale)
-                    h = int(im.height * scale)
-                    if w > 10 and h > 10:
-                        im = im.resize((w, h), Image.LANCZOS)
+                if img_pil.width < 50 or img_pil.height < 50:
+                    continue
 
-                buf = io.BytesIO()
-                im.save(buf, format="JPEG", quality=quality)
+                if img_pil.mode != "RGB":
+                    img_pil = img_pil.convert("RGB")
 
-                doc.update_stream(xref, buf.getvalue())
+                if escala < 1:
+                    new_w = int(img_pil.width * escala)
+                    new_h = int(img_pil.height * escala)
+                    if new_w < 50 or new_h < 50:
+                        continue
 
-            except Exception as e:
-                print("IMG ERROR:", e)
+                    img_pil = img_pil.resize(
+                        (new_w, new_h),
+                        Image.LANCZOS
+                    )
+
+                buffer = io.BytesIO()
+                img_pil.save(
+                    buffer,
+                    format="JPEG",
+                    quality=calidad,
+                    optimize=True,
+                    subsampling=2
+                )
+
+                page.replace_image(xref, stream=buffer.getvalue())
+
+            except Exception:
                 continue
 
-    doc.save(salida)
+    doc.save(salida, garbage=4, deflate=True, clean=True)
     doc.close()
 
 
