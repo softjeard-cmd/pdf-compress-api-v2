@@ -49,6 +49,28 @@ async def compress_pdf(
 
 
 
+##============================================================================================
+##JAMAS ME RINDO==============================================================================
+
+from fastapi import Request # Asegúrate de añadir Request a tus imports de fastapi
+
+@app.post("/debug-gpt")
+async def debug_gpt(request: Request):
+    # Esto captura TODO el JSON que envía GPT
+    data = await request.json()
+    
+    # Se imprimirá en los logs de Render
+    print("--- DATOS RECIBIDOS DESDE GPT ---")
+    print(data) 
+    print("---------------------------------")
+    
+    return {
+        "status": "recibido",
+        "data_preview": data
+    }
+
+
+
 
 
 
