@@ -40,14 +40,14 @@ async def compress_pdf(
         #)
 
         # 4. Retornar el archivo procesado con el nombre dinámico
-                print(f"Enviando respuesta binaria: OPTIMIZADO_{file_name}")
-                return FileResponse(
-                    output_path,
-                    media_type="application/pdf",
-                    filename=f"OPTIMIZADO_{file_name}",
-                    # Añadimos este encabezado para forzar la descarga en el navegador/GPT
-                    headers={"Content-Disposition": f"attachment; filename=OPTIMIZADO_{file_name}"}
-                )
+        print(f"Enviando respuesta binaria: OPTIMIZADO_{file_name}")
+        return FileResponse(
+            output_path,
+            media_type="application/pdf",
+            filename=f"OPTIMIZADO_{file_name}",
+            # Añadimos este encabezado para forzar la descarga en el navegador/GPT
+            headers={"Content-Disposition": f"attachment; filename=OPTIMIZADO_{file_name}"}
+        )
 
     
 
@@ -167,6 +167,7 @@ async def compress_from_gpt(request: Request):
         if os.path.exists(input_path):
             os.remove(input_path)
             print("Limpieza de archivos temporales completada.")
+
 
 
 
