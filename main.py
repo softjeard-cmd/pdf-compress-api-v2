@@ -10,8 +10,8 @@ app = FastAPI()
 @app.post("/compress")
 async def compress_pdf(
     file: UploadFile = File(...),
-    quality: int = Form(41),
-    scale: float = Form(0.6),
+    quality: Optional[str] = Form(None),
+    scale: Optional[str] = Form(None),
 ):
     # archivo de entrada
     input_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
@@ -41,6 +41,7 @@ async def compress_pdf(
     finally:
         if os.path.exists(input_path):
             os.remove(input_path)
+
 
 
 
