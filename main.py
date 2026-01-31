@@ -170,6 +170,93 @@ async def compress_from_gpt(request: Request):
             os.remove(input_path)
             print("Limpieza de archivos temporales completada.")
 
+#CODIGO 3 - JASMAS ME RENDIRÉ------------------------------------------
+##OJO CODIGO DE PRUEBA -----CSC:0523------------------------------------
+########################################################################
+########################################################################3
+# --- NUEVA FUNCIONALIDAD: ENVÍO MEDIANTE LINK DE DESCARGA (V2) ---
+from fastapi.staticfiles import StaticFiles
+import shutil
+import uuid
+
+# 1. Creamos una carpeta física en el servidor para alojar los archivos temporalmente
+DOWNLOAD_DIR = "downloads"
+os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+# 2. Montamos la carpeta para que sea accesible vía URL
+app.mount("/static-download", StaticFiles(directory=DOWNLOAD_DIR), name="static-download")
+
+@app.post("/compress-v2")
+async def compress_gpt_v2(request: Request):
+    import requests
+    
+    # Reutilizamos tu lógica de rastreo (print) que tanto nos ha servido
+    data = await request.json()
+    print("--- INICIANDO COMPRESIÓN V2 (LINK) ---")
+    
+    calidad_por_defecto = 41
+    escala_por_defecto = 0.60
+    
+    files = data.get("openaiFileIdRefs", [])
+    if not files:
+        return {"status": "error", "message": "No se recibió archivo"}
+
+    file_info = files[0]
+    download_url = file_info.get("download_link")
+    file_name = file_info.get("name", "archivo.pdf")
+
+    try:
+        # Descarga
+        response = requests.get(download_url, timeout=30)
+        tamano_entrada_mb = len(response.content) / (1024 * 1024)
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as input_tmp:
+            input_tmp.write(response.content)
+            input_path = input_tmp.name
+
+        output_path = tempfile.mktemp(suffix=".pdf")
+
+        # Compresión usando tu función original
+        print(f"Ejecutando compresión para: {file_name}")
+        comprimir_solo_imagenes_pdf(input_path, output_path, calidad_por_defecto, escala_por_defecto)
+        
+        # Medición
+        tamano_salida_mb = os.path.getsize(output_path) / (1024 * 1024)
+        ahorro = ((tamano_entrada_mb - tamano_salida_mb) / tamano_entrada_mb) * 100
+
+        # --- CAMBIO CLAVE: GUARDAR Y GENERAR LINK ---
+        # Generamos un nombre único para evitar conflictos
+        unique_name = f"{uuid.uuid4()}_OPTIMIZADO_{file_name}"
+        save_path = os.path.join(DOWNLOAD_DIR, unique_name)
+        
+        # Movemos el archivo de la carpeta temporal a la carpeta de descargas pública
+        shutil.move(output_path, save_path)
+        
+        # Construimos la URL pública de tu servidor en Render
+        public_url = f"https://pdf-compressor-api-osad.onrender.com/static-download/{unique_name}"
+        
+        print(f"¡ÉXITO! Link generado: {public_url}")
+
+        # Devolvemos JSON, que GPT procesa mucho mejor que archivos binarios
+        return {
+            "status": "success",
+            "message": "Archivo comprimido exitosamente",
+            "info": {
+                "nombre": file_name,
+                "tamano_original": f"{tamano_entrada_mb:.2f} MB",
+                "tamano_comprimido": f"{tamano_salida_mb:.2f} MB",
+                "reduccion": f"{ahorro:.1f}%"
+            },
+            "url_descarga": public_url
+        }
+
+    except Exception as e:
+        print(f"Error en V2: {str(e)}")
+        return {"status": "error", "message": str(e)}
+    finally:
+        if 'input_path' in locals() and os.path.exists(input_path):
+            os.remove(input_path)
+
 
 
 
