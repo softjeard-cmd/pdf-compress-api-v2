@@ -73,14 +73,18 @@ async def debug_gpt(request: Request):
 ##============================================================================================
 ##JAMAS ME RINDO==============CODIGO 2 RESPUESTA DEL BACK=====================================
 # --- SECCIÓN NUEVA PARA GPT ACTIONS ---
-import requests
-
 @app.post("/compress-gpt")
 async def compress_from_gpt(request: Request):
-    # 1. Capturamos y mostramos los datos en el log (Igual que en debug)
+    # 1. Capturamos y mostramos los datos en el log
     data = await request.json()
     print("--- INICIANDO COMPRESIÓN DESDE GPT ---")
     print(f"Datos recibidos: {data}") 
+    
+    # --- DEFINICIÓN DE VARIABLES POR DEFECTO ---
+    # Las definimos aquí para tener control total
+    calidad_por_defecto = 41
+    escala_por_defecto = 0.60
+    print(f"Configuración: Calidad={calidad_por_defecto}, Escala={escala_por_defecto}")
     
     files = data.get("openaiFileIdRefs", [])
     if not files:
@@ -94,7 +98,7 @@ async def compress_from_gpt(request: Request):
 
     # 2. Descarga con verificación
     try:
-        print(f"Descargando desde: {download_url[:50]}...") # Mostramos solo el inicio del link
+        print(f"Descargando desde OpenAI...")
         response = requests.get(download_url, timeout=30)
         if response.status_code != 200:
             print(f"Error de descarga: Status {response.status_code}")
@@ -112,7 +116,17 @@ async def compress_from_gpt(request: Request):
 
     try:
         print("Ejecutando comprimir_solo_imagenes_pdf...")
-        comprimir_solo_imagenes_pdf(input_path, output_path, quality=41, scale=0.6)
+        
+        # Llamamos a tu función asegurándonos de pasar los valores definidos arriba
+        # Nota: Si tu función en pdf_compress.py usa nombres distintos, 
+        # asegúrate de que coincidan (ej: calidad vs quality)
+        comprimir_solo_imagenes_pdf(
+            input_path, 
+            output_path, 
+            calidad_por_defecto, 
+            escala_por_defecto
+        )
+        
         print("¡Compresión exitosa!")
 
         return FileResponse(
@@ -121,8 +135,9 @@ async def compress_from_gpt(request: Request):
             filename=f"OPTIMIZADO_{file_name}"
         )
     except Exception as e:
+        # Este print te dirá exactamente por qué falla la lógica interna ahora
         print(f"Error en lógica de compresión: {str(e)}")
-        return {"error": "Error interno al comprimir"}
+        return {"error": f"Error interno al comprimir: {str(e)}"}
     finally:
         if os.path.exists(input_path):
             os.remove(input_path)
