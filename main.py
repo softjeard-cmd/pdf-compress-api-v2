@@ -33,21 +33,13 @@ async def compress_pdf(
         )
 
         # 4. Retornar el archivo procesado
-        #return FileResponse(
-        #    output_path,
-        #    media_type="application/pdf",
-        #    filename="PDF_OPTIMIZADO.pdf"
-        #)
-
-        # 4. Retornar el archivo procesado con el nombre dinámico
-        print(f"Enviando respuesta binaria: OPTIMIZADO_{file_name}")
         return FileResponse(
             output_path,
             media_type="application/pdf",
-            filename=f"OPTIMIZADO_{file_name}",
-            # Añadimos este encabezado para forzar la descarga en el navegador/GPT
-            headers={"Content-Disposition": f"attachment; filename=OPTIMIZADO_{file_name}"}
+            filename="PDF_OPTIMIZADO.pdf"
         )
+
+       
 
     
 
@@ -154,11 +146,21 @@ async def compress_from_gpt(request: Request):
         
         print("¡Compresión exitosa!")
 
+  # --- AQUÍ VA EL BLOQUE DE RETORNO ACTUALIZADO ---
+        # Este mensaje aparecerá en tus logs justo antes de que el archivo salga hacia GPT
+        print(f"ENVIANDO RESPUESTA BINARIA: OPTIMIZADO_{file_name}")
+        
         return FileResponse(
-            output_path,
+            path=output_path,
             media_type="application/pdf",
-            filename=f"OPTIMIZADO_{file_name}"
+            filename=f"OPTIMIZADO_{file_name}",
+            headers={
+                "Content-Disposition": f"attachment; filename=OPTIMIZADO_{file_name}",
+                "Access-Control-Expose-Headers": "Content-Disposition"
+            }
         )
+        # --- FIN DEL BLOQUE ACTUALIZADO ---
+
     except Exception as e:
         print(f"Error en lógica de compresión: {str(e)}")
         return {"error": f"Error interno al comprimir: {str(e)}"}
@@ -167,6 +169,7 @@ async def compress_from_gpt(request: Request):
         if os.path.exists(input_path):
             os.remove(input_path)
             print("Limpieza de archivos temporales completada.")
+
 
 
 
