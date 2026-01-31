@@ -1,52 +1,58 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Query
 from fastapi.responses import FileResponse
 import tempfile
-from typing import Optional
 import os
 
 from pdf_compress import comprimir_solo_imagenes_pdf
 
-app = FastAPI()
+app = FastAPI(
+    title="PDF Compressor API",
+    description="API para comprimir PDFs ajustando calidad y escala de imágenes",
+    version="1.0.0"
+)
 
-@app.post("/compress")
+@app.post("/compress", summary="Comprime un archivo PDF")
 async def compress_pdf(
-    file: UploadFile = File(...),
-    quality: Optional[str] = Form(None),
-    scale: Optional[str] = Form(None),
-
+    file: UploadFile = File(..., description="Archivo PDF a comprimir"),
+    calidad: int = Query(
+        41,
+        ge=1,
+        le=100,
+        description="Calidad de las imágenes (1–100)"
+    ),
+    escala: float = Query(
+        0.6,
+        ge=0.1,
+        le=1.0,
+        description="Escala de las imágenes (0.1–1.0)"
+    )
 ):
-    # 👇 AQUÍ VA ESTO
-    quality = int(quality) if quality else 41
-    scale = float(scale) if scale else 0.6
-    
-    # archivo de entrada
-    input_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    input_path = input_tmp.name
-    input_tmp.write(await file.read())
-    input_tmp.close()
+    # Validación básica
+    if not file.filename.lower().endswith(".pdf"):
+        return {"error": "El archivo debe ser un PDF"}
 
-    # archivo de salida
-    output_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    output_path = output_tmp.name
-    output_tmp.close()
+    # Archivo PDF de entrada temporal
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as input_tmp:
+        input_tmp.write(await file.read())
+        input_path = input_tmp.name
 
-    try:
-        comprimir_solo_imagenes_pdf(
-            input_path,
-            output_path,
-            quality,
-            scale
-        )
+    # Archivo PDF de salida temporal
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as output_tmp:
+        output_path = output_tmp.name
 
-        return FileResponse(
-            output_path,
-            media_type="application/pdf",
-            filename="PDF_OPTIMIZED.pdf"
-        )
+    # Compresión del PDF
+    comprimir_solo_imagenes_pdf(
+        input_path,
+        output_path,
+        calidad,
+        escala
+    )
 
-    finally:
-        if os.path.exists(input_path):
-            os.remove(input_path)
+    return FileResponse(
+        path=output_path,
+        media_type="application/pdf",
+        filename="PDF_OPTIMIZADO.pdf"
+    )
 
 
 
