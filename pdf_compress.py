@@ -1,66 +1,39 @@
-import fitz  # PyMuPDF
+import fitz
 import io
 from PIL import Image
 
-
-def comprimir_solo_imagenes_pdf(
-    entrada,
-    salida,
-    quality=41,
-    scale=0.60
-):
+def comprimir_solo_imagenes_pdf(entrada, salida, quality=41, scale=0.6):
     doc = fitz.open(entrada)
 
     for page in doc:
-        for img in page.get_images(full=True):
-            xref = img[0]
+        img_list = page.get_images(full=True)
 
-            # no hacer nada si no hay compresión real
-            if quality >= 100 and scale >= 1:
-                continue
+        for img in img_list:
+            xref = img[0]
 
             try:
                 base = doc.extract_image(xref)
                 img_bytes = base["image"]
 
-                img_pil = Image.open(io.BytesIO(img_bytes))
+                im = Image.open(io.BytesIO(img_bytes)).convert("RGB")
 
-                # ignorar iconos / thumbnails
-                if img_pil.width < 50 or img_pil.height < 50:
-                    continue
-
-                if img_pil.mode != "RGB":
-                    img_pil = img_pil.convert("RGB")
-
-                # escalado
+                # resize
                 if scale < 1:
-                    new_w = int(img_pil.width * scale)
-                    new_h = int(img_pil.height * scale)
+                    w = int(im.width * scale)
+                    h = int(im.height * scale)
+                    if w > 10 and h > 10:
+                        im = im.resize((w, h), Image.LANCZOS)
 
-                    if new_w < 50 or new_h < 50:
-                        continue
+                buf = io.BytesIO()
+                im.save(buf, format="JPEG", quality=quality)
 
-                    img_pil = img_pil.resize(
-                        (new_w, new_h),
-                        Image.LANCZOS
-                    )
-
-                buffer = io.BytesIO()
-                img_pil.save(
-                    buffer,
-                    format="JPEG",
-                    quality=quality,
-                    optimize=True,
-                    subsampling=2
-                )
-
-                page.replace_image(xref, stream=buffer.getvalue())
+                doc.update_stream(xref, buf.getvalue())
 
             except Exception as e:
-                print("Error procesando imagen - Si ingreso a pdf-compress-api-v2:", e)
+                print("IMG ERROR:", e)
                 continue
 
-    doc.save(salida, garbage=4, deflate=True, clean=True)
+    doc.save(salida)
     doc.close()
 
 
