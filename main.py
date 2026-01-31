@@ -1,6 +1,6 @@
 import base64
 import tempfile
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -14,35 +14,54 @@ class CompressRequest(BaseModel):
     calidad: int = 41
     escala: float = 0.6
 
+
 @app.post("/compress")
 def compress_pdf(data: CompressRequest):
 
-    # 1️⃣ Decodificar base64 → bytes reales
+    # ─────────────────────────────────────────────
+    # PASO 1: BASE64 → BYTES (OBLIGATORIO)
+    # ─────────────────────────────────────────────
     try:
         pdf_bytes = base64.b64decode(data.pdf_base64)
     except Exception:
-        return {"error": "Base64 inválido"}
+        raise HTTPException(status_code=400, detail="Base64 inválido")
 
-    # 2️⃣ Guardar como PDF REAL
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
-        f.write(pdf_bytes)
-        input_path = f.name
+    # Validación mínima: ¿parece un PDF?
+    if not pdf_bytes.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="El archivo no es un PDF válido")
 
-    # 3️⃣ Archivo de salida
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
-        output_path = f.name
+    # ─────────────────────────────────────────────
+    # PASO 2: BYTES → ARCHIVO PDF REAL EN DISCO
+    # (ESTO DEBE OCURRIR ANTES DE TODO)
+    # ─────────────────────────────────────────────
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as input_tmp:
+            input_tmp.write(pdf_bytes)
+            input_pdf_path = input_tmp.name
+    except Exception:
+        raise HTTPException(status_code=500, detail="No se pudo escribir el PDF en disco")
 
-    # 4️⃣ Compresión
-    comprimir_solo_imagenes_pdf(
-        input_path,
-        output_path,
-        data.calidad,
-        data.escala
-    )
+    # ─────────────────────────────────────────────
+    # A PARTIR DE AQUÍ, YA EXISTE UN PDF REAL
+    # ─────────────────────────────────────────────
 
-    # 5️⃣ Responder PDF
+    # Archivo de salida
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as output_tmp:
+        output_pdf_path = output_tmp.name
+
+    # Paso siguiente (ya seguro)
+    try:
+        comprimir_solo_imagenes_pdf(
+            input_pdf_path,
+            output_pdf_path,
+            data.calidad,
+            data.escala
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al comprimir PDF: {str(e)}")
+
     return FileResponse(
-        output_path,
+        output_pdf_path,
         media_type="application/pdf",
         filename="PDF_OPTIMIZADO.pdf"
     )
