@@ -1,65 +1,51 @@
-from fastapi import FastAPI, UploadFile, File, Query
-from fastapi.responses import FileResponse
+import base64
 import tempfile
-import os
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from pdf_compress import comprimir_solo_imagenes_pdf
 
-app = FastAPI(
-    title="PDF Compressor API",
-    description="API para comprimir PDFs ajustando calidad y escala de imágenes",
-    version="1.0.0"
-)
+app = FastAPI()
 
-@app.post("/compress", summary="Comprime un archivo PDF")
-async def compress_pdf(
-    file: UploadFile = File(..., description="Archivo PDF a comprimir"),
-    calidad: int = Query(
-        41,
-        ge=1,
-        le=100,
-        description="Calidad de las imágenes (1–100)"
-    ),
-    escala: float = Query(
-        0.6,
-        ge=0.1,
-        le=1.0,
-        description="Escala de las imágenes (0.1–1.0)"
-    )
-):
-    # Validación básica
-    if not file.filename.lower().endswith(".pdf"):
-        return {"error": "El archivo debe ser un PDF"}
+class CompressRequest(BaseModel):
+    filename: str
+    pdf_base64: str
+    calidad: int = 41
+    escala: float = 0.6
 
-    # Archivo PDF de entrada temporal
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as input_tmp:
-        input_tmp.write(await file.read())
-        input_path = input_tmp.name
+@app.post("/compress")
+def compress_pdf(data: CompressRequest):
 
-    # Archivo PDF de salida temporal
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as output_tmp:
-        output_path = output_tmp.name
+    # 1️⃣ Decodificar base64 → bytes reales
+    try:
+        pdf_bytes = base64.b64decode(data.pdf_base64)
+    except Exception:
+        return {"error": "Base64 inválido"}
 
-    # Compresión del PDF
+    # 2️⃣ Guardar como PDF REAL
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
+        f.write(pdf_bytes)
+        input_path = f.name
+
+    # 3️⃣ Archivo de salida
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
+        output_path = f.name
+
+    # 4️⃣ Compresión
     comprimir_solo_imagenes_pdf(
         input_path,
         output_path,
-        calidad,
-        escala
+        data.calidad,
+        data.escala
     )
 
+    # 5️⃣ Responder PDF
     return FileResponse(
-        path=output_path,
+        output_path,
         media_type="application/pdf",
         filename="PDF_OPTIMIZADO.pdf"
     )
-
-
-
-
-
-
-
 
 
 
