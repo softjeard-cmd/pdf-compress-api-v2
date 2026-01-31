@@ -13,7 +13,12 @@ async def compress_pdf(
     file: UploadFile = File(...),
     quality: Optional[str] = Form(None),
     scale: Optional[str] = Form(None),
+
 ):
+    # 👇 AQUÍ VA ESTO
+    quality = int(quality) if quality else 41
+    scale = float(scale) if scale else 0.6
+    
     # archivo de entrada
     input_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     input_path = input_tmp.name
@@ -42,6 +47,7 @@ async def compress_pdf(
     finally:
         if os.path.exists(input_path):
             os.remove(input_path)
+
 
 
 
