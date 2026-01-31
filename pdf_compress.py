@@ -1,55 +1,63 @@
 import fitz  # PyMuPDF
-import shutil
+import io
+from PIL import Image
 
-def comprimir_solo_imagenes_pdf(entrada, salida, calidad, escala):
+
+def comprimir_solo_imagenes_pdf(
+    entrada,
+    salida,
+    calidad=41,
+    escala=0.60
+):
     doc = fitz.open(entrada)
 
-    if doc.page_count == 0:
-        doc.close()
-        raise ValueError("PDF de entrada sin páginas")
-
-    imagenes_encontradas = False
-
     for page in doc:
-        images = page.get_images(full=True)
-
-        if not images:
-            continue
-
-        imagenes_encontradas = True
-
-        for img in images:
+        for img in page.get_images(full=True):
             xref = img[0]
-            base_image = doc.extract_image(xref)
-            image_bytes = base_image["image"]
 
-            pix = fitz.Pixmap(image_bytes)
+            if calidad == 100 and escala == 1:
+                continue
 
-            if pix.alpha:
-                pix = fitz.Pixmap(pix, 0)
+            try:
+                base = doc.extract_image(xref)
+                img_bytes = base["image"]
 
-            pix = fitz.Pixmap(
-                pix,
-                matrix=fitz.Matrix(escala, escala)
-            )
+                img_pil = Image.open(io.BytesIO(img_bytes))
 
-            new_bytes = pix.tobytes("jpeg", quality=calidad)
-            doc.update_stream(xref, new_bytes)
+                if img_pil.width < 50 or img_pil.height < 50:
+                    continue
 
-    # 🔴 CLAVE ABSOLUTA
-    if not imagenes_encontradas:
-        doc.close()
-        # No hay imágenes → devuelve el PDF original
-        shutil.copyfile(entrada, salida)
-        return
+                if img_pil.mode != "RGB":
+                    img_pil = img_pil.convert("RGB")
 
-    # Guardar solo si el doc sigue teniendo páginas
-    if doc.page_count == 0:
-        doc.close()
-        raise ValueError("El PDF resultante quedó sin páginas")
+                if escala < 1:
+                    new_w = int(img_pil.width * escala)
+                    new_h = int(img_pil.height * escala)
+                    if new_w < 50 or new_h < 50:
+                        continue
+
+                    img_pil = img_pil.resize(
+                        (new_w, new_h),
+                        Image.LANCZOS
+                    )
+
+                buffer = io.BytesIO()
+                img_pil.save(
+                    buffer,
+                    format="JPEG",
+                    quality=calidad,
+                    optimize=True,
+                    subsampling=2
+                )
+
+                page.replace_image(xref, stream=buffer.getvalue())
+
+            except Exception:
+                continue
 
     doc.save(salida, garbage=4, deflate=True, clean=True)
     doc.close()
+
 
 
 
